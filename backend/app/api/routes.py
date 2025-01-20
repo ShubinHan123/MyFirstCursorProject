@@ -11,7 +11,7 @@ from app.services import crud
 
 router = APIRouter()
 
-@router.post("/upload/", response_model=Paper)
+@router.post("/papers/upload/")
 async def upload_pdf(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -23,6 +23,9 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail="只能上传PDF文件")
     
     try:
+        # 创建上传目录
+        os.makedirs("papers", exist_ok=True)
+        
         # 保存文件
         file_path = os.path.join("papers", file.filename)
         with open(file_path, "wb") as buffer:
@@ -30,15 +33,13 @@ async def upload_pdf(
             buffer.write(content)
         
         # 处理PDF文件
-        paper_data = await process_pdf(file_path)
+        paper_data = await process_pdf(file_path, db)
+        return paper_data
         
-        # 创建数据库记录
-        paper = crud.create_paper(db, PaperCreate(**paper_data))
-        return paper
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/papers/", response_model=List[Paper])
+@router.get("/papers/")
 def get_papers(
     skip: int = 0,
     limit: int = 100,
@@ -50,7 +51,7 @@ def get_papers(
     papers = crud.get_papers(db, skip=skip, limit=limit)
     return papers
 
-@router.get("/papers/{paper_id}", response_model=Paper)
+@router.get("/papers/{paper_id}")
 def get_paper(
     paper_id: int,
     db: Session = Depends(get_db)
@@ -63,7 +64,7 @@ def get_paper(
         raise HTTPException(status_code=404, detail="论文不存在")
     return paper
 
-@router.get("/entities/", response_model=List[Entity])
+@router.get("/entities/")
 def get_entities(
     skip: int = 0,
     limit: int = 100,
@@ -75,7 +76,7 @@ def get_entities(
     entities = crud.get_entities(db, skip=skip, limit=limit)
     return entities
 
-@router.get("/search/")
+@router.get("/entities/search/")
 def search_entities(
     query: str,
     entity_type: str = None,
@@ -127,4 +128,77 @@ def get_knowledge_graph(
     return {
         "nodes": nodes,
         "edges": edges
-    } 
+    }
+
+@router.delete("/papers/{paper_id}")
+async def delete_paper_endpoint(
+    paper_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    删除论文及其相关文件和关系
+    """
+    success = crud.delete_paper(db, paper_id)
+    if success:
+        # 清理没有关联的实体
+        crud.cleanup_unused_entities(db)
+        return {"message": "文档已删除"}
+    else:
+        raise HTTPException(status_code=404, detail="文档不存在或删除失败")
+
+@router.get("/papers/search/")
+def search_papers(
+    query: str,
+    db: Session = Depends(get_db)
+):
+    """
+    搜索论文
+    支持的查询格式：
+    - get all papers that mention person [name]
+    - get all papers that mention organisation [name]
+    - get all papers that mention work [name]
+    - get one paper that mention ...
+    """
+    query_parts = query.lower().split()
+    if not query_parts or query_parts[0] != "get":
+        raise HTTPException(status_code=400, detail="查询格式不正确")
+    
+    try:
+        # 解析查询
+        limit = None
+        if query_parts[1] == "one":
+            limit = 1
+            query_parts.pop(1)
+        
+        if query_parts[1] != "all" or query_parts[2] != "papers" or \
+           query_parts[3] != "that" or query_parts[4] != "mention":
+            raise HTTPException(status_code=400, detail="查询格式不正确")
+        
+        # 获取实体类型和名称
+        entity_type = None
+        if query_parts[5] == "person":
+            entity_type = "PERSON"
+            name_start = 6
+        elif query_parts[5] == "organisation":
+            entity_type = "ORG"
+            name_start = 6
+        elif query_parts[5] == "work":
+            entity_type = "WORK_OF_ART"
+            name_start = 6
+        else:
+            name_start = 5
+        
+        entity_name = " ".join(query_parts[name_start:])
+        
+        # 执行搜索
+        papers = crud.search_papers_by_entity(
+            db,
+            entity_name=entity_name,
+            entity_type=entity_type,
+            limit=limit
+        )
+        
+        return papers
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) 

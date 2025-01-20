@@ -1,0 +1,14 @@
+{
+  "entities": [
+    {
+      "text": "Anomalous Graphs",
+      "label": "PERSON",
+      "count": 1
+    },
+    {
+      "text": "Labeled",
+      "label": "GPE",
+      "count": 1
+    }
+  ]
+}

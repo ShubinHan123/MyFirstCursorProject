@@ -1,0 +1,34 @@
+{
+  "entities": [
+    {
+      "text": "Black-Box Optimization",
+      "label": "ORG",
+      "count": 3
+    },
+    {
+      "text": "GECCO",
+      "label": "PERSON",
+      "count": 2
+    },
+    {
+      "text": "22, July 9–13, 2022",
+      "label": "DATE",
+      "count": 2
+    },
+    {
+      "text": "Boston",
+      "label": "GPE",
+      "count": 2
+    },
+    {
+      "text": "MA",
+      "label": "GPE",
+      "count": 2
+    },
+    {
+      "text": "USA",
+      "label": "GPE",
+      "count": 2
+    }
+  ]
+}

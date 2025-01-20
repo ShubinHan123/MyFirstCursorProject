@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.core.config import settings
+from app.db.init_db import init_db
+
+# 初始化数据库
+init_db()
 
 # 创建必要的目录
 os.makedirs("data", exist_ok=True)  # 数据库目录

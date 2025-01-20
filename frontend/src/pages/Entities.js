@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Typography, Card, Space, Input, Select, List } from 'antd';
-import { getEntities, searchEntities } from '../services/api';
+import { Typography, Table, Card, Space, Tag, Tooltip } from 'antd';
+import { getEntities } from '../services/api';
 
 const { Title } = Typography;
-const { Search } = Input;
-const { Option } = Select;
 
 function Entities() {
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [entityType, setEntityType] = useState(null);
 
   useEffect(() => {
     fetchEntities();
@@ -22,29 +19,13 @@ function Entities() {
       setEntities(data);
     } catch (error) {
       console.error('获取实体列表失败:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = async (value) => {
-    setLoading(true);
-    try {
-      const data = await searchEntities(value, entityType);
-      setEntities(data);
-    } catch (error) {
-      console.error('搜索实体失败:', error);
+      message.error('获取实体列表失败');
     } finally {
       setLoading(false);
     }
   };
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'entity_id',
-      key: 'entity_id',
-    },
     {
       title: '实体名称',
       dataIndex: 'entity_name',
@@ -54,14 +35,44 @@ function Entities() {
       title: '实体类型',
       dataIndex: 'entity_type',
       key: 'entity_type',
+      render: (type) => (
+        <Tag color={
+          type === 'PERSON' ? 'blue' :
+          type === 'ORG' ? 'green' :
+          type === 'LOC' ? 'gold' :
+          'default'
+        }>
+          {type}
+        </Tag>
+      ),
     },
     {
       title: '出现次数',
-      key: 'occurrence',
-      render: (_, record) => {
-        const papers = record.papers || [];
-        return papers.length;
+      dataIndex: 'papers',
+      key: 'total_count',
+      render: (papers) => {
+        const totalCount = papers.reduce((sum, p) => sum + p.count, 0);
+        return totalCount;
       },
+    },
+    {
+      title: '关联文档',
+      dataIndex: 'papers',
+      key: 'papers',
+      render: (papers) => (
+        <Space wrap>
+          {papers.map(paper => (
+            <Tooltip 
+              key={paper.paper_id} 
+              title={`出现 ${paper.count} 次`}
+            >
+              <Tag color="processing">
+                {paper.paper_name}
+              </Tag>
+            </Tooltip>
+          ))}
+        </Space>
+      ),
     },
   ];
 
@@ -70,27 +81,6 @@ function Entities() {
       <Title level={2}>实体列表</Title>
       
       <Card>
-        <Space style={{ marginBottom: 16 }}>
-          <Select
-            style={{ width: 200 }}
-            placeholder="选择实体类型"
-            allowClear
-            onChange={setEntityType}
-          >
-            <Option value="PERSON">人物</Option>
-            <Option value="ORG">组织</Option>
-            <Option value="WORK_OF_ART">作品</Option>
-          </Select>
-          
-          <Search
-            placeholder="搜索实体"
-            allowClear
-            enterButton="搜索"
-            onSearch={handleSearch}
-            style={{ width: 300 }}
-          />
-        </Space>
-
         <Table
           columns={columns}
           dataSource={entities}
@@ -103,14 +93,6 @@ function Entities() {
           }}
         />
       </Card>
-
-      <List
-        bordered
-        dataSource={[]}
-        renderItem={(item) => (
-          <List.Item>{item}</List.Item>
-        )}
-      />
     </Space>
   );
 }
